@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Istiqamah",
+    "slug": "istiqamah",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourname.istiqamah"
+    },
+    "android": {
+      "packageName": "com.yourname.istiqamah",
+      "versionCode": 1,
+      "permissions": [
+        "NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "efbf6222-c692-493a-be95-d7d3652e29ed"
+      }
+    }
+  }
+}
