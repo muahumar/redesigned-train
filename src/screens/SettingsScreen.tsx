@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import dayjs from 'dayjs';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../utils/theme';
 import { useAppStore } from '../store/useAppStore';
 import TimePicker from '../components/TimePicker';
 import { scheduleSalahReminder, cancelAllNotifications } from '../utils/notificationService';
 import { DEFAULT_SALAH, SALAH_REMINDER_TIMES } from '../constants/defaultSalah';
+import { settingsRepository } from '../db/settingsRepository';
+import type { RootStackParamList } from '../../App';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>; // P17 fix
 
 const SALAH_NAMES = [
   { key: 'tahajjud', label: 'Tahajjud' },
@@ -17,26 +21,42 @@ const SALAH_NAMES = [
   { key: 'isha', label: 'Isha' },
 ];
 
+// Default times from shared constant
+const DEFAULT_TIMES: Record<string, string> = {
+  tahajjud: '02:30',
+  fajr: '05:00',
+  dhuhr: '12:30',
+  asr: '16:00',
+  maghrib: '18:30',
+  isha: '20:00',
+};
+
 export default function SettingsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<Nav>();
   const { theme, toggleTheme } = useTheme();
-  const { onboarded, setOnboarded } = useAppStore();
+  const { setOnboarded } = useAppStore();
   const [reminders, setReminders] = useState<Record<string, boolean>>({
-    tahajjud: true,
-    fajr: true,
-    dhuhr: true,
-    asr: true,
-    maghrib: true,
-    isha: true,
+    tahajjud: true, fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true,
   });
-  const [times, setTimes] = useState<Record<string, string>>({
-    tahajjud: '02:30',
-    fajr: '05:00',
-    dhuhr: '12:30',
-    asr: '16:00',
-    maghrib: '18:30',
-    isha: '20:00',
-  });
+  const [times, setTimes] = useState<Record<string, string>>(DEFAULT_TIMES);
+
+  // P7 fix: Load persisted settings on mount
+  useEffect(() => {
+    try {
+      const savedTimes: Record<string, string> = {};
+      const savedReminders: Record<string, boolean> = {};
+      SALAH_NAMES.forEach(({ key }) => {
+        const t = settingsRepository.get(`reminder_time_${key}`);
+        const r = settingsRepository.get(`reminder_on_${key}`);
+        if (t) savedTimes[key] = t;
+        if (r !== undefined) savedReminders[key] = r === 'true';
+      });
+      if (Object.keys(savedTimes).length) setTimes((prev) => ({ ...prev, ...savedTimes }));
+      if (Object.keys(savedReminders).length) setReminders((prev) => ({ ...prev, ...savedReminders }));
+    } catch (e) {
+      console.warn('Settings load error:', e);
+    }
+  }, []);
 
   const isDark = theme === 'dark';
   const backgroundColor = isDark ? '#111' : '#f9fafb';
@@ -44,9 +64,13 @@ export default function SettingsScreen() {
   const textColor = isDark ? '#fff' : '#111';
   const subtextColor = isDark ? '#aaa' : '#666';
 
+  // P7 fix: Persist on toggle
   const toggleReminder = async (key: string) => {
     const newValue = !reminders[key];
     setReminders((prev) => ({ ...prev, [key]: newValue }));
+    try {
+      settingsRepository.set(`reminder_on_${key}`, newValue ? 'true' : 'false');
+    } catch (e) { /* web: ignore */ }
     if (newValue) {
       const time = SALAH_REMINDER_TIMES[key] || { hour: 0, minute: 0 };
       await scheduleSalahReminder(key, time.hour, time.minute);
@@ -55,8 +79,12 @@ export default function SettingsScreen() {
     }
   };
 
+  // P7 fix: Persist on time change
   const updateTime = (key: string, time: string) => {
     setTimes((prev) => ({ ...prev, [key]: time }));
+    try {
+      settingsRepository.set(`reminder_time_${key}`, time);
+    } catch (e) { /* web: ignore */ }
   };
 
   const resetOnboarding = () => {

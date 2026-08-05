@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import dayjs from 'dayjs';
 import { db, initDatabase } from '../db/database';
 import { salahRepository } from '../db/salahRepository';
 import { habitRepository } from '../db/habitRepository';
 import { DEFAULT_SALAH } from '../constants/defaultSalah';
-import { PrayerStatus, Habit, HabitLog, DayLog } from '../types';
+import { PrayerStatus, Habit, HabitLog } from '../types';
 import ProgressCalendar from '../components/ProgressCalendar';
 import StreakBadge from '../components/StreakBadge';
 import EmptyState from '../components/EmptyState';
@@ -42,7 +42,10 @@ export default function ProgressScreen() {
       });
       setSalahStats(stats);
     } catch (e) {
-      console.error(e);
+      // P3 fix: platform-aware error handling
+      if (Platform.OS !== 'web') {
+        console.error(e);
+      }
     } finally {
       setLoading(false);
     }
@@ -53,9 +56,9 @@ export default function ProgressScreen() {
   const getHabitStats = (habit: Habit) => {
     const logs = db.getAllSync<HabitLog>('SELECT * FROM habit_logs WHERE habitId = ? AND date BETWEEN ? AND ?', [habit.id, dateRange.start, dateRange.end]);
     const total = logs.length;
-    const completed = logs.filter((l) => l.completed).length;
+    const completed = logs.filter((l) => l.completed === true || (l.completed as any) === 1).length; // P14 fix
     const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-    const streak = calculateStreak(logs.map((l) => ({ date: l.date, completed: l.completed })));
+    const streak = calculateStreak(logs.map((l) => ({ date: l.date, completed: !!(l.completed) })));
     return { total, completed, percent, streak };
   };
 
@@ -70,10 +73,11 @@ export default function ProgressScreen() {
     return totalItems > 0 ? completedItems / totalItems : 0;
   };
 
+  // P15 fix: ActivityIndicator
   if (loading) {
     return (
       <View style={styles.center}>
-        <Text>Loading...</Text>
+        <ActivityIndicator size="large" color="#1565c0" />
       </View>
     );
   }
@@ -101,10 +105,8 @@ export default function ProgressScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Heat Map</Text>
-        <ProgressCalendar
-          range={dateRange}
-          getDayScore={getDayScore}
-        />
+        {/* P9 fix is in ProgressCalendar.tsx */}
+        <ProgressCalendar range={dateRange} getDayScore={getDayScore} />
       </View>
 
       <View style={styles.section}>
@@ -113,7 +115,7 @@ export default function ProgressScreen() {
           <EmptyState
             icon="📋"
             title="No habits yet"
-            description="Create your first habit from the Today screen to start tracking."
+            description="Tap the ＋ button on Today screen to create your first habit."
           />
         ) : (
           habits.map((habit) => {
@@ -176,5 +178,5 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#1b1b1b' },
   cardSub: { fontSize: 12, color: '#666', marginTop: 2 },
   percentText: { fontSize: 16, fontWeight: '700', color: '#1565c0' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' },
 });

@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../utils/theme';
 import { useAppStore } from '../store/useAppStore';
+import type { RootStackParamList } from '../../App';
 
 const { width } = Dimensions.get('window');
+
+type Nav = NativeStackNavigationProp<RootStackParamList>; // P17 fix
 
 const SLIDES = [
   {
@@ -28,10 +32,11 @@ const SLIDES = [
 ];
 
 export default function OnboardingScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<Nav>();
   const { theme } = useTheme();
   const { setOnboarded } = useAppStore();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const scrollRef = useRef<ScrollView>(null); // P8 fix: ref for programmatic scroll
 
   const isDark = theme === 'dark';
   const backgroundColor = isDark ? '#111' : '#fff';
@@ -43,6 +48,17 @@ export default function OnboardingScreen() {
     navigation.replace('Main');
   };
 
+  // P8 fix: "Next" advances slides programmatically; only last slide triggers getStarted
+  const handleNext = () => {
+    if (currentSlide < SLIDES.length - 1) {
+      const nextIndex = currentSlide + 1;
+      scrollRef.current?.scrollTo({ x: width * nextIndex, animated: true });
+      setCurrentSlide(nextIndex);
+    } else {
+      handleGetStarted();
+    }
+  };
+
   const handleSkip = () => {
     setOnboarded(true);
     navigation.replace('Main');
@@ -51,9 +67,11 @@ export default function OnboardingScreen() {
   return (
     <View style={[styles.root, { backgroundColor }]}>
       <ScrollView
+        ref={scrollRef}   // P8 fix: attach ref
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        scrollEnabled={false}  // Disable manual swipe — use Next button only
         onMomentumScrollEnd={(e) => {
           const index = Math.round(e.nativeEvent.contentOffset.x / width);
           setCurrentSlide(index);
@@ -81,7 +99,8 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleGetStarted}>
+        {/* P8 fix: uses handleNext instead of handleGetStarted */}
+        <TouchableOpacity style={styles.button} onPress={handleNext}>
           <Text style={styles.buttonText}>{currentSlide === SLIDES.length - 1 ? 'Get Started' : 'Next'}</Text>
         </TouchableOpacity>
 

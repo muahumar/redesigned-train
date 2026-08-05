@@ -4,7 +4,12 @@ import { Platform } from 'react-native';
 const NOTIFICATION_CHANNEL = 'istiqamah-reminders';
 const notificationMap = new Map<number, string>();
 
+// P5 fix: All functions are guarded — expo-notifications has no web support.
+// On web, functions return safe defaults and do nothing.
+
 export async function requestNotificationPermissions(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNEL, {
       name: 'Istiqamah Reminders',
@@ -19,6 +24,8 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 }
 
 export async function scheduleSalahReminder(prayerName: string, hour: number, minute: number): Promise<string> {
+  if (Platform.OS === 'web') return '';
+
   const trigger: Notifications.CalendarTriggerInput = {
     type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
     hour,
@@ -40,6 +47,8 @@ export async function scheduleSalahReminder(prayerName: string, hour: number, mi
 }
 
 export async function scheduleHabitReminder(habitId: number, habitName: string, hour: number, minute: number): Promise<string> {
+  if (Platform.OS === 'web') return '';
+
   const trigger: Notifications.CalendarTriggerInput = {
     type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
     hour,
@@ -62,6 +71,8 @@ export async function scheduleHabitReminder(habitId: number, habitName: string, 
 }
 
 export async function cancelHabitReminder(habitId: number): Promise<void> {
+  if (Platform.OS === 'web') return;
+
   const existing = notificationMap.get(habitId);
   if (existing) {
     await Notifications.cancelScheduledNotificationAsync(existing);
@@ -70,10 +81,14 @@ export async function cancelHabitReminder(habitId: number): Promise<void> {
 }
 
 export async function cancelAllNotifications(): Promise<void> {
+  if (Platform.OS === 'web') return;
+
   await Notifications.cancelAllScheduledNotificationsAsync();
   notificationMap.clear();
 }
 
 export async function getAllScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
+  if (Platform.OS === 'web') return [];
+
   return await Notifications.getAllScheduledNotificationsAsync();
 }

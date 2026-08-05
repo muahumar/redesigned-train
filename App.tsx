@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { requestNotificationPermissions } from './src/utils/notificationService';
 import { useAppStore } from './src/store/useAppStore';
 import { ThemeProvider } from './src/utils/theme';
@@ -24,9 +25,29 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
+// P11 fix: Tab bar with emoji icons and active color
 function MainTabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }}>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: '#1565c0',
+        tabBarInactiveTintColor: '#999',
+        tabBarStyle: { paddingBottom: 4, height: 56 },
+        tabBarIcon: ({ focused }) => {
+          const icons: Record<string, string> = {
+            Today: '🗓️',
+            Progress: '📊',
+            Settings: '⚙️',
+          };
+          return (
+            <Text style={{ fontSize: focused ? 22 : 19, opacity: focused ? 1 : 0.55 }}>
+              {icons[route.name] ?? '●'}
+            </Text>
+          );
+        },
+      })}
+    >
       <Tab.Screen name="Today" component={TodayScreen} />
       <Tab.Screen name="Progress" component={ProgressScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
@@ -38,16 +59,28 @@ export default function App() {
   const { onboarded, hydrate } = useAppStore();
   const [ready, setReady] = useState(false);
 
+  // P2 fix: wrap in try/catch so setReady(true) is ALWAYS called,
+  // even if notifications or DB hydration fail (e.g. on web).
   useEffect(() => {
     (async () => {
-      await requestNotificationPermissions();
-      hydrate();
-      setReady(true);
+      try {
+        await requestNotificationPermissions();
+        hydrate();
+      } catch (e) {
+        console.warn('App init error (safe to ignore on web):', e);
+      } finally {
+        setReady(true);
+      }
     })();
   }, [hydrate]);
 
+  // P2 fix: show spinner instead of null while loading
   if (!ready) {
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#1565c0" />
+      </View>
+    );
   }
 
   return (

@@ -1,10 +1,34 @@
-import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
-const DB_NAME = 'istiqamah.db';
+// ─── Web mock DB (expo-sqlite is native-only) ───────────────────────────────
+// On web, provide an in-memory no-op that satisfies the same API surface
+// so all repositories and screens work without crashing.
+const webMockDb = {
+  execSync: (_sql: string) => {},
+  runSync: (_sql: string, _params?: any[]): { lastInsertRowId: number; changes: number } => ({
+    lastInsertRowId: Date.now(),
+    changes: 0,
+  }),
+  getFirstSync: <T = any>(_sql: string, _params?: any[]): T | null => null,
+  getAllSync: <T = any>(_sql: string, _params?: any[]): T[] => [],
+};
 
-export const db = SQLite.openDatabaseSync(DB_NAME);
+// ─── Real SQLite DB (iOS / Android) ─────────────────────────────────────────
+let db: typeof webMockDb;
+
+if (Platform.OS === 'web') {
+  db = webMockDb;
+} else {
+  // Dynamic require so the bundler doesn't try to resolve expo-sqlite on web
+  const SQLite = require('expo-sqlite');
+  db = SQLite.openDatabaseSync('istiqamah.db');
+}
+
+export { db };
 
 export function initDatabase() {
+  if (Platform.OS === 'web') return; // no-op on web
+
   db.execSync(`
     CREATE TABLE IF NOT EXISTS habits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

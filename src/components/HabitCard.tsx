@@ -9,7 +9,9 @@ interface Props {
 }
 
 export default function HabitCard({ habit, log, onToggle }: Props) {
-  const completed = !!log?.completed;
+  // P14 fix: SQLite stores booleans as 0/1 integers, not true/false.
+  // Using `=== true || === 1` handles both the TypeScript type and the raw DB value.
+  const completed = log?.completed === true || (log?.completed as any) === 1;
   const timeLabel = habit.scheduledTime ? `🕐 ${habit.scheduledTime}` : '';
 
   return (

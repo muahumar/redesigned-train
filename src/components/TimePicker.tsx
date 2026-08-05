@@ -4,6 +4,9 @@ import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'rea
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
+// P13 fix: Modal is now a sibling of TouchableOpacity, NOT nested inside it.
+// Nesting Modal inside TouchableOpacity causes touch bubbling bugs on web and
+// some Android versions (picker reopens or flickers immediately on open).
 export default function TimePicker({ value, onChange }: { value?: string; onChange: (time: string) => void }) {
   const [visible, setVisible] = useState(false);
   const [selectedHour, setSelectedHour] = useState(0);
@@ -25,8 +28,12 @@ export default function TimePicker({ value, onChange }: { value?: string; onChan
   };
 
   return (
-    <TouchableOpacity onPress={open} style={styles.button}>
-      <Text style={styles.text}>{value || '--:--'}</Text>
+    <View>
+      {/* P13 fix: button and modal are siblings, not parent/child */}
+      <TouchableOpacity onPress={open} style={styles.button}>
+        <Text style={styles.text}>{value || '--:--'}</Text>
+      </TouchableOpacity>
+
       <Modal visible={visible} transparent animationType="slide">
         <View style={styles.overlay}>
           <View style={styles.modal}>
@@ -65,7 +72,7 @@ export default function TimePicker({ value, onChange }: { value?: string; onChan
           </View>
         </View>
       </Modal>
-    </TouchableOpacity>
+    </View>
   );
 }
 

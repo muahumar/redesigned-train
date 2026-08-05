@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import dayjs from 'dayjs';
 
@@ -17,6 +17,25 @@ export default function ProgressCalendar({ range, getDayScore }: Props) {
     if (score < 0.33) return '#c8e6c9';
     if (score < 0.66) return '#66bb6a';
     return '#2e7d32';
+  };
+
+  // P9 fix: dayjs objects are IMMUTABLE — must reassign current on each iteration.
+  // Previous code called current.add(1, 'day') without reassigning → infinite loop.
+  const buildMarkedDates = () => {
+    const marked: Record<string, { color: string; textColor: string }> = {};
+    let current = dayjs(range.start);           // ← use `let`, not `const`
+    const end = dayjs(range.end);
+
+    while (current.isBefore(end) || current.isSame(end, 'day')) {
+      const dateStr = current.format('YYYY-MM-DD');
+      const score = getDayScore(dateStr);
+      marked[dateStr] = {
+        color: getColor(score),
+        textColor: score > 0 ? '#fff' : '#333',
+      };
+      current = current.add(1, 'day');          // ← must reassign!
+    }
+    return marked;
   };
 
   return (
@@ -41,25 +60,11 @@ export default function ProgressCalendar({ range, getDayScore }: Props) {
           textMonthFontSize: 16,
           textDayHeaderFontSize: 12,
         }}
-        markedDates={(() => {
-          const marked: Record<string, { color: string; textColor: string }> = {};
-          const current = dayjs(range.start);
-          const end = dayjs(range.end);
-          while (current.isBefore(end) || current.isSame(end, 'day')) {
-            const dateStr = current.format('YYYY-MM-DD');
-            const score = getDayScore(dateStr);
-            marked[dateStr] = {
-              color: getColor(score),
-              textColor: score > 0 ? '#fff' : '#333',
-            };
-            current.add(1, 'day');
-          }
-          return marked;
-        })()}
+        markedDates={buildMarkedDates()}
         onDayPress={(day) => {
           const score = getDayScore(day.dateString);
           const percent = Math.round(score * 100);
-          Alert.alert('Day Score', `${day.dateString}\n${percent}% completed`);
+          console.log(`Day: ${day.dateString} | Score: ${percent}%`);
         }}
       />
     </View>
